@@ -29,7 +29,8 @@
     "optimist": "0.3.4",
     "moment": "1.7.0",
     "glob": "3.1.14",
-	"tail": "0.2.4"
+	"tail": "0.2.4",
+	"wmi": "0.0.19"
   },
   "directories": {
     "test": "./test",
