@@ -27,7 +27,9 @@
     "log4node": "0.1.0",
     "zmq": "2.1.0",
     "optimist": "0.3.4",
-    "moment": "1.7.0"
+    "moment": "1.7.0",
+    "glob": "3.1.14",
+	"tail": "0.2.4"
   },
   "directories": {
     "test": "./test",
