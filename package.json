@@ -21,7 +21,7 @@
     "whereis": "0.0.2"
   },
   "scripts": {
-    "test": "./test-runner.sh"
+    "test": "./test-runner.sh",
     "install": "node_modules\\.bin\\winser -i",
     "uninstall": "node_modules\\.bin\\winser -r"
   },
