@@ -22,6 +22,8 @@
   },
   "scripts": {
     "test": "./test-runner.sh"
+    "install": "node_modules\\.bin\\winser -i",
+    "uninstall": "node_modules\\.bin\\winser -r"
   },
   "dependencies": {
     "log4node": "0.1.0",
@@ -29,7 +31,9 @@
     "moment": "1.7.0",
     "glob": "3.1.14",
 	"tail": "0.2.4",
-	"wmi": "0.0.19"
+	"linestream": "0.3.2",
+	"rabbit.js": "0.2.0",
+	"winser": "0.0.12"
   },
   "directories": {
     "test": "./test",
