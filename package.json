@@ -33,7 +33,8 @@
 	"tail": "0.2.4",
 	"linestream": "0.3.2",
 	"rabbit.js": "0.2.0",
-	"winser": "0.0.12"
+	"winser": "0.0.12",
+	"tedious": "0.0.7"
   },
   "directories": {
     "test": "./test",
