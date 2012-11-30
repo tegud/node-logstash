@@ -77,6 +77,7 @@ Others params:
 * ``--log_file`` to redirect log to a log file
 * ``--patterns_directories`` to add some directories (separated by ,), for loading config for regex plugin
 * ``--db_file`` to specify the file to use as database for file inputs (see below)
+* ``--http_max_sockets`` to specify the max sockets of [http.globalAgent.maxSockets](http://nodejs.org/api/http.html#http_agent_maxsockets). Default to 100.
 
 Examples
 ---
@@ -102,10 +103,12 @@ This plugin monitor log files. It's compatible with logrotate. If a db file is s
 
 Example: ``input://file:///tmp/toto.log``, to monitor ``/tmp/toto.log``.
 
-Params:
+Parameters:
 
 * ``start_index``: add ``?start_index=0`` to reread files from begining. Without this params, only new lines are read.
-* ``type``: to specify the log type, to faciliate crawling in kibana. Example: ``type=nginx_error_log`
+* ``type``: to specify the log type, to faciliate crawling in kibana. Example: ``type=nginx_error_log``.
+
+Note: this plugin can be used on FIFO pipes.
 
 ZeroMQ
 ---
@@ -163,11 +166,11 @@ This plugin is used send data to statsd.
 
 Example: ``output://statsd://localhost:8125?only_type=nginx&metric_type=increment&metric_key=nginx.request``, to send, for each line of nginx log, a counter with value 1, key ``nginx.request``, on a statsd instance located on port 8125.
 
-Params:
+Parameters:
 
 * ``metric_type``: one of ``increment``, ``decrement``, ``counter``, ``timer``, ``gauge``. Type of value to send to statsd.
 * ``metric_key``: key to send to statsd.
-* ``metric_value``: metric value to send to statsd. Mandatory for ``timer``, ``counter`` and ``gauge`` type
+* ``metric_value``: metric value to send to statsd. Mandatory for ``timer``, ``counter`` and ``gauge`` type.
 
 ``metric_key`` and ``metric_value`` can reference log line properties (see above).
 
@@ -180,12 +183,48 @@ This plugin is used to send data to a GELF enabled server, eg [Graylog2](http://
 
 Example: ``output://gelf://192.168.1.1:12201``, to send logs to 192.168.1.1 port 1221.
 
-Params:
+Parameters:
 
 * ``message``: ``short_message`` field. Default value: ``#{@message}``, the line of log. Can reference log line properties (see above).
 * ``facility``: ``facility`` field. Default value: ``#{@type}``, the line type. ``no_facility`` if no value. Can reference log line properties (see above).
 * ``level``: ``level`` field. Default value: ``6``. Can reference log line properties (see above).
 * ``version``: ``version`` field. Default value: ``1.0``.
+
+File
+---
+
+This plugin is used to write data into files. There are two modes: JSON, and raw (default).
+
+In JSON mode, each line of log is dumped to target file as JSON object, containing all fields.
+
+In raw mode, each line of log is dumped to target file as specified in ``format`` parameter. Default format is ``#{@message}``, which means the original log line.
+
+Note: target files can be reopened by sending USR signal to node-logstash.
+
+Example 1: ``output://file:///var/log/toto.log?only_type=nginx``, to write each ``nginx`` log lines to ``/var/log/toto.log``.
+
+Parameters:
+
+* ``output_type``: ``raw`` or ``json``. Default is ``raw``.
+* ``format``: Log format for ``raw`` mode. Default is ``#{@message}``. Can reference log line properties (see above).
+
+HTTP Post
+---
+
+This plugin is used to send data to an HTTP server, with a POST request. For filling request body, there are two modes: JSON, and raw (default).
+
+In JSON mode, the HTTP POST body request will contain a JSON dump of log line, containing all fields. Content-Type will be set to ``text/plain``.
+
+In raw mode, the HTTP POST body request will contain the log line. Content-Type will be set to ``application/json``.
+
+Example 1: Send data to [Loggly](http://loggly.com/): ``output://http_post://logs.loggly.com:80?path=/inputs/YOUR_INPUT_KEY``
+
+Parameters:
+
+* ``path``: the path to use in the HTTP request. Can reference log line properties (see above).
+* ``proto``: ``http`` or ``https``. Default value: ``http``.
+* ``output_type``: ``raw`` or ``json``. Default is ``raw``.
+* ``format``: Log format for ``raw`` mode. Default is ``#{@message}``. Can reference log line properties (see above).
 
 Filters
 ===
@@ -199,12 +238,12 @@ Example 1: ``filter://regex://?regex=^(\S)+ &fields=toto``, to extract the first
 
 Example 2: ``filter://regex://http_combined?only_type=nginx``, to extract fields following configuration into the http_combined pattern. node-logstash is bundled with [some configurations](https://github.com/bpaquet/node-logstash/tree/master/lib/patterns). You can add your custom patterns directories, see options ``--patterns_directories``.
 
-Params:
+Parameters:
 
-* regex: the regex to apply
-* fields: the name of fields which wil receive the pattern extracted (see below for the special field timestamp)
-* type: if this field is set, only the lines of logs with the same type will be processed by this filter.
-* date\_format: if date_format is specified and a ``timestamp`` field is extracted, the plugin will process the data extracted with the date\_format, using [moment](http://momentjs.com/docs/#/parsing/string-format/). The result will replace the original timestamp of the log line.
+* ``regex``: the regex to apply.
+* ``fields``: the name of fields which wil receive the pattern extracted (see below for the special field timestamp).
+* ``type``: if this field is set, only the lines of logs with the same type will be processed by this filter.
+* ``date\_format``: if date_format is specified and a ``timestamp`` field is extracted, the plugin will process the data extracted with the date\_format, using [moment](http://momentjs.com/docs/#/parsing/string-format/). The result will replace the original timestamp of the log line.
 
 Mutate replace
 ---
@@ -213,10 +252,10 @@ The mutate replace filter is used to run regex on specified field.
 
 Example: ``filter://mutate_replace?toto&from=\\.&to=-`` replace all ``.`` in ``toto`` field by ``-``
 
-Params:
+Parameters:
 
-* from: the regex to find pattern which will be replaced. You have to escape special characters.
-* to: the replacement string
+* ``from``: the regex to find pattern which will be replaced. You have to escape special characters.
+* ``to``: the replacement string.
 
 Grep
 ---
@@ -229,23 +268,46 @@ Example 2: ``filter://grep://?regex=abc&invert=true`` remove all lines which con
 
 Example 3: ``filter://grep://?type=nginx&regex=abc`` remove all lines with type ``nginx`` which do not contain ``abc`` and
 
-Params:
+Parameters:
 
-* regex: the regex to be matched
-* invert: if ``true``, remove lines which match. Default value: false
+* ``regex``: the regex to be matched. You have to escape special characters.
+* ``invert``: if ``true``, remove lines which match. Default value: false.
 
 Compute field
 ---
 
 The compute field filter is used to add a new field to a line, with a fixed value, or with a value computed from other fields.
 
-Example 1: ``filter://compute_field?toto&value=abc`` add a field named ``toto`` with value ``abc``
+Example 1: ``filter://compute_field://toto?value=abc`` add a field named ``toto`` with value ``abc``
 
-Example 2: ``filter://compute_field?toto&value=abc#{titi}`` add a field named ``toto`` with value ``abcef``, if line contain a field ``titi`` with value ``ef``
+Example 2: ``filter://compute_field://toto?value=abc#{titi}`` add a field named ``toto`` with value ``abcef``, if line contain a field ``titi`` with value ``ef``
 
-Params:
+Parameters:
 
-* value: the value to place in the given field
+* ``value``: the value to place in the given field.
+
+Split
+---
+
+The split filter is used to split a line of log into multiple lines, on a given delimiter.
+
+Example 1: ``filter://split://?delimiter=|`` split all lines of logs on ``|`` char.
+
+Parameters:
+
+* ``delimiter``: the delimiter used to split.
+
+Multiline
+---
+
+The multiline filter is used to regroup lines into blocks. For example, you can group lines from a Java stacktrace into single line of log. To do that, you have to provide a regular expression which match the first line of each block. Standard way is to detect a timestamp.
+
+Example 1: ``filter://multiline?start_line_regex=^\\d{4}-\\d{2}-\\d{2}`` will regroup lines by blocks, each block have to start with a line with a date like ``2012-12-02``
+
+Parameters:
+
+* ``start_line_regex``: the regular expression which is used to find lines which start blocks. You have to escape special characters.
+* ``max_delay``: delay to wait the end of a block. Default value: 50 ms. Softwares which write logs by block usually write blocks in one time, this parameter is used to send lines without waiting the next matching start line.
 
 License
 ===
