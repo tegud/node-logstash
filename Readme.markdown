@@ -29,13 +29,13 @@ Moreover it's written in NodeJS, which is a perfect language for programs with m
 
 node-logstash is compatible with logstash. You can replace a node-logstash node by a logstash one. The data are formatted in the same way to be compatible with logstash UIs.
 
-How it's work ?
+How it's works ?
 ===
 
 The architecture is identical to logstash architecture. You have to instanciates plugins with the node-logstash core. There are three type of modules:
 
-* [inputs plugin](https://github.com/bpaquet/node-logstash/tree/master/lib/inputs): where datas come into node-logstash. Examples: file, zeromq transport layer
-* [filter plugin](https://github.com/bpaquet/node-logstash/tree/master/lib/filters): extract fields from logs, like timestamps. Example: regex plugin
+* [inputs plugins](https://github.com/bpaquet/node-logstash/tree/master/lib/inputs): where datas come into node-logstash. Examples: file, zeromq transport layer
+* [filter plugins](https://github.com/bpaquet/node-logstash/tree/master/lib/filters): extract fields from logs, like timestamps. Example: regex plugin
 * [outputs plugins](https://github.com/bpaquet/node-logstash/tree/master/lib/outputs): where datas leave from node-logstash: Examples: elastic search , zeromq transport layer.
 
 
@@ -52,10 +52,16 @@ Installation
 ---
 
 * Install NodeJS, version > 0.8.
-* Install zmq dev libraries: `apt-get install libzmq1`. This is required to build the [node zeromq module](https://github.com/JustinTulloss/zeromq.node).
-* Install node-logstash: `npm install node-logstash`
+* Install build tools
+  * Debian based system: `apt-get install build-essential`
+  * Centos system: `yum install gcc gcc-c++ make`
+* Install zmq dev libraries: This is required to build the [node zeromq module](https://github.com/JustinTulloss/zeromq.node).
+  * Debian based system: `apt-get install libzmq1`. Under recent releases, this package is present in default repositories. On ubuntu lucid, use this [ppa](https://launchpad.net/~chris-lea/+archive/zeromq). On debian squeeze, use [backports](http://backports-master.debian.org/Instructions/).
+  * Centos 6: `yum install zeromq zeromq-devel`. Before, you have to add the rpm zeromq repo : `curl http://download.opensuse.org/repositories/home:/fengshuo:/zeromq/CentOS_CentOS-6/home:fengshuo:zeromq.repo > /etc/yum.repos.d/zeromq.repo`
+* Clone repository: `git clone git://github.com/bpaquet/node-logstash.git && cd node-logstash`
+* Install dependencies: `npm install`.
 
-The executable is in ``node_modules/node-logstash/bin/node-logstash-agent``
+The executable is in ``bin/node-logstash-agent``
 
 You have scripts in ``dists`` folder to build packages. Actually, only debian is supported.
 
@@ -90,8 +96,19 @@ Config file for an agent:
 Config file for log server:
 
     input://zeromq://tcp://0.0.0.0:5555
-    filter://regex://?load_config=http_combined
+    filter://regex://http_combined
     output://elasticsearch://localhost:9001
+
+Changelog
+===
+
+* Allow to use input file plugin on non existent directory
+
+0.0.2
+---
+
+* Add redis input and output plugin
+* Add tail -f input file plugin
 
 Inputs plugins
 ===
@@ -106,9 +123,31 @@ Example: ``input://file:///tmp/toto.log``, to monitor ``/tmp/toto.log``.
 Parameters:
 
 * ``start_index``: add ``?start_index=0`` to reread files from begining. Without this params, only new lines are read.
+* ``use_tail``: use system ``tail -f`` command to monitor file, instead of built in file monitoring. Should be used with logrotate and copytuncate option. Defaut value: false.
 * ``type``: to specify the log type, to faciliate crawling in kibana. Example: ``type=nginx_error_log``.
 
 Note: this plugin can be used on FIFO pipes.
+
+Syslog
+---
+
+There is no syslog plugin, but it's easy to emulate with udp plugin.
+
+Example:
+
+* ``input://udp://0.0.0.0:514?type=syslog``
+* ``filter://regex://syslog?only_type=syslog``
+* ``filter://syslog_pri://?only_type=syslog``
+
+The first filter will parse the syslog line, and extract ``syslog_priority``, ``syslog_program``, ``syslog_pid`` fields,
+parse timestamp, and will replace ``@source_host`` and ``@message`` field.
+
+The second filter will extract from ``syslog_priority`` field severity and facility.
+
+You can also use the regex ``syslog_no_prio`` if there is no timestamp in syslog lines
+
+* ``input://udp://0.0.0.0:514?type=syslog``
+* ``filter://regex://syslog_no_prio?only_type=syslog``
 
 ZeroMQ
 ---
@@ -116,6 +155,21 @@ ZeroMQ
 This plugin is used on log server to receive logs from agents.
 
 Example: ``input://zeromq://tcp://0.0.0.0:5555``, to open a zeromq socket on port 5555.
+
+Redis
+---
+
+This plugin is used on log server to receive logs from redis channels. json_event format is expected.
+
+Example:
+
+* ``input://redis://localhost:6379?channel=logstash_channel``
+
+Parameters:
+
+* ``channel``: Redis channel to subscribe/psubscribe to
+* ``type``: to specify the log type, to faciliate crawling in kibana. Example: ``type=redis``. No default value.
+* ``pattern_channel``: use channel as pattern. Default value : false
 
 Outputs and filter, commons parameters
 ===
@@ -221,10 +275,25 @@ Example 1: Send data to [Loggly](http://loggly.com/): ``output://http_post://log
 
 Parameters:
 
-* ``path``: the path to use in the HTTP request. Can reference log line properties (see above).
+* ``path``: path to use in the HTTP request. Can reference log line properties (see above).
 * ``proto``: ``http`` or ``https``. Default value: ``http``.
 * ``output_type``: ``raw`` or ``json``. Default is ``raw``.
 * ``format``: Log format for ``raw`` mode. Default is ``#{@message}``. Can reference log line properties (see above).
+
+Redis
+---
+
+This plugin is used to sent data on a Redis channel.
+
+Example:
+
+* ``output://redis://localhost:6379?channel=logstash_channel``
+
+Parameters:
+
+* ``channel``: Redis channel to subscribe/psubscribe to
+* ``type``: to specify the log type, to faciliate crawling in kibana. Example: ``type=app_name_log``.
+* ``pattern_channel``: use channel as pattern. Default value : false
 
 Filters
 ===
@@ -238,12 +307,16 @@ Example 1: ``filter://regex://?regex=^(\S)+ &fields=toto``, to extract the first
 
 Example 2: ``filter://regex://http_combined?only_type=nginx``, to extract fields following configuration into the http_combined pattern. node-logstash is bundled with [some configurations](https://github.com/bpaquet/node-logstash/tree/master/lib/patterns). You can add your custom patterns directories, see options ``--patterns_directories``.
 
+Example 3: ``filter://regex://?regex=(\d+|-)&fields=a&numerical_fields=a``, to force number extraction. If the macthed string is not a number but ``-``, the field ``a`` will not be set.
+
 Parameters:
 
-* ``regex``: the regex to apply.
-* ``fields``: the name of fields which wil receive the pattern extracted (see below for the special field timestamp).
-* ``type``: if this field is set, only the lines of logs with the same type will be processed by this filter.
-* ``date\_format``: if date_format is specified and a ``timestamp`` field is extracted, the plugin will process the data extracted with the date\_format, using [moment](http://momentjs.com/docs/#/parsing/string-format/). The result will replace the original timestamp of the log line.
+* ``regex``: regex to apply.
+* ``fields``: name of fields which will receive the pattern extracted (see below for the special field @timestamp).
+* ``numerical_fields``: name of fields which have to contain a numerical value. If value is not numerical, field will not be set.
+* ``date_format``: if ``date_format` is specified and a ``@timestamp`` field is extracted, the filter will process the data extracted with the date\_format, using [moment](http://momentjs.com/docs/#/parsing/string-format/). The result will replace the original timestamp of the log line.
+
+Note: fields with empty values will not be set.
 
 Mutate replace
 ---
@@ -254,8 +327,8 @@ Example: ``filter://mutate_replace?toto&from=\\.&to=-`` replace all ``.`` in ``t
 
 Parameters:
 
-* ``from``: the regex to find pattern which will be replaced. You have to escape special characters.
-* ``to``: the replacement string.
+* ``from``: regex to find pattern which will be replaced. You have to escape special characters.
+* ``to``: replacement string.
 
 Grep
 ---
@@ -270,8 +343,19 @@ Example 3: ``filter://grep://?type=nginx&regex=abc`` remove all lines with type 
 
 Parameters:
 
-* ``regex``: the regex to be matched. You have to escape special characters.
+* ``regex``: regex to be matched. You have to escape special characters.
 * ``invert``: if ``true``, remove lines which match. Default value: false.
+
+Reverse DNS
+---
+
+The reverse dns filter replace an ip in `@source_host` by the hostname, performing a dns resolution. This is useful with syslog.
+
+Example 1: ``filter://reverse_dns://`` 
+
+Parameters:
+
+* ``only_hostname``: after dns resolution, the filter will keep only the first word of dns name. Example : 'www.free.fr' will be transformed to 'www'. Default value: true
 
 Compute field
 ---
@@ -284,7 +368,18 @@ Example 2: ``filter://compute_field://toto?value=abc#{titi}`` add a field named 
 
 Parameters:
 
-* ``value``: the value to place in the given field.
+* ``value``: value to be placed in the given field.
+
+Compute date field
+---
+
+The compute date field filter is used to compute a date field from ``@timestamp``field, using using [moment](http://momentjs.com/docs/#/parsing/string-format/) date format.
+
+Example 1: ``filter://compute_date_field://toto?date_format=DD/MMMM/YYYY`` add a field named ``toto``, containing timestamp formated with ``DD/MMMM/YYYY``
+
+Parameters:
+
+* ``date_format``: date format string, using [moment](http://momentjs.com/docs/#/parsing/string-format/)
 
 Split
 ---
@@ -295,7 +390,7 @@ Example 1: ``filter://split://?delimiter=|`` split all lines of logs on ``|`` ch
 
 Parameters:
 
-* ``delimiter``: the delimiter used to split.
+* ``delimiter``: delimiter used to split.
 
 Multiline
 ---
@@ -306,13 +401,53 @@ Example 1: ``filter://multiline?start_line_regex=^\\d{4}-\\d{2}-\\d{2}`` will re
 
 Parameters:
 
-* ``start_line_regex``: the regular expression which is used to find lines which start blocks. You have to escape special characters.
+* ``start_line_regex``: egular expression which is used to find lines which start blocks. You have to escape special characters.
 * ``max_delay``: delay to wait the end of a block. Default value: 50 ms. Softwares which write logs by block usually write blocks in one time, this parameter is used to send lines without waiting the next matching start line.
+
+Json Fields
+---
+
+The json fields filter is used to parse the message payload as a JSON object, and merge it to the ``@fields`` attribute.
+
+This allows to automatically index fields for messages that already contain a well-formatted JSON payload. The JSON object is parsed starting from the first ``{`` character found in the message. 
+
+Filter does nothing in case of error while parsing the message. Existing attributes in ``@fields`` are kept, but overwritten if they conflict with attributes from the parsed payload.
+
+Example 1: ``filter://json_fields://?only_type=json_stream`` will parse, as JSON, the given stream of messages which ``@type`` matches ``json_stream``, and fill the ``@fields`` attribute using the messages content.
+
+Misc
+===
+
+Force fields typing in Elastic Search
+---
+
+If you have a custom field with an hashcode
+- if the first hashcode of the day contains only digits, Elastic Search will guess the field type and will choose integer and it will fail to index the next values that contains letters.
+- by default elastic search will tokenize it like some real text instead of treating it like a blob, it won't impact tools like kibana but may prevent you from doing custom queries.
+
+For both cases you should add a `default-mapping.json` file in Elastic Search config directory :
+
+```json
+{
+  "_default_": {
+    "properties": {
+      "@fields": {
+        "properties": {
+          "my_hash_field": {
+            "type" : "string",
+            "index" : "not_analyzed"
+          }
+        }
+      }
+    }
+  }
+}
+```
 
 License
 ===
 
-Copyright 2012 Bertrand Paquet
+Copyright 2012 - 2013 Bertrand Paquet
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
 

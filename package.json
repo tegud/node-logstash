@@ -17,28 +17,21 @@
     }
   ],
   "devDependencies": {
-    "vows": "0.6.x",
+    "vows": "0.7.0",
     "whereis": "0.0.2"
   },
   "scripts": {
-    "test": "./test-runner.sh",
-    "install": "node_modules\\.bin\\winser -i",
-    "uninstall": "node_modules\\.bin\\winser -r"
+    "test": "./test-runner.sh"
   },
   "dependencies": {
-    "log4node": "0.1.0",
+    "log4node": "0.1.2",
+    "zmq": "2.3.x",
     "optimist": "0.3.4",
     "moment": "1.7.0",
-    "glob": "3.1.14",
-	"tail": "0.2.4",
-	"linestream": "0.3.2",
-	"rabbit.js": "0.2.0",
-	"winser": "0.0.12",
-	"tedious": "0.0.7"
+    "redis": "0.8.x"
   },
   "directories": {
     "test": "./test",
     "bin": "./bin"
-  },
-  "engines": { "node": ">= 0.8.0" }
+  }
 }
