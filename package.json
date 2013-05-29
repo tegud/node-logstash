@@ -25,10 +25,16 @@
   },
   "dependencies": {
     "log4node": "0.1.2",
-    "zmq": "2.3.x",
     "optimist": "0.3.4",
     "moment": "1.7.0",
-    "redis": "0.8.x"
+    "redis": "0.8.x",
+    "glob": "3.1.14",
+	"tail": "0.2.4",
+	"linestream": "0.3.2",
+	"rabbit.js": "0.2.0",
+	"winser": "0.0.12",
+	"tedious": "0.0.7",
+	"wmi": "0.0.23"
   },
   "directories": {
     "test": "./test",
